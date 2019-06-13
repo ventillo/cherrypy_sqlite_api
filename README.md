@@ -10,3 +10,10 @@ Simple, lightweight, universal SQLite API, based on cherrypy.
     5. row inserts
     6. row deletes
     7. row modifies
+
+## REST API
+https://www.restapitutorial.com/
+
+## Cherrypy http microframework / server
+https://cherrypy.org/
+
