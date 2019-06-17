@@ -17,3 +17,15 @@ https://www.restapitutorial.com/
 ## Cherrypy http microframework / server
 https://cherrypy.org/
 
+## Progress
+1. set up Cherrypy server as base for RESTAPI (matoumi)
+    - cherrypy base, config, root, ssl (later)?
+    - responses for /insert /select /delete /modify
+    
+2. classes and functions for DB operations and mapping
+    - INSERT
+    - SELECT
+    - DELETE
+    - MODIFY / ALTER
+
+3. aggregate functions and complex queries mapping
