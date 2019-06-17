@@ -23,9 +23,17 @@ https://cherrypy.org/
     - responses for /insert /select /delete /modify
     
 2. classes and functions for DB operations and mapping
+    - Conditions operators and values can obviously be merged to one statement
+      and sent to the API as is - then need to be validated.
     - INSERT
+        - INSERT INTO {table} VALUES({val1}, {val2})
+        - validate number of fields and types
+        - error handling and tracebacks
     - SELECT
+        - SELECT {fields} FROM {table} WHERE {condition} {operator} {value}
+        - the whole where cluase is optional, but needs to be implemented
     - DELETE
+        - DELETE FROM {table} WHERE {condition} {operator} {value}
     - MODIFY / ALTER
 
 3. aggregate functions and complex queries mapping
