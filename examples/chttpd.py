@@ -28,7 +28,7 @@ def main_server_loop():
         *Exception*         If server is unable to start
     
     '''
-    server_config={
+    server_config = {
         'server.socket_host': '127.0.0.1',
         'server.socket_port': 80
     }
