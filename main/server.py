@@ -1,4 +1,3 @@
-#Comments and PEP8 format TODO
 import cherrypy
 import os
 
@@ -13,9 +12,26 @@ SCRIPT_PATH = os.path.abspath(os.path.dirname(__file__))
 
 
 class main_server_loop(object):
-	cherrypy.config.update({'server.socket_host': '127.0.0.1',
-							'server.socket_port': 80,
-						})
+	''' Main class for start cherrypy server
+
+	Settings for server socket port and how are sub-modules
+	called and mounted to their respective paths
+
+	Args:
+		*None*
+
+	Sets:
+		*conf:*	dict(), per-application configuration
+
+	Returns:
+		*N/A*
+
+	Raises:
+		*Exception* Server is unable to start
+
+	'''
+
+	cherrypy.config.update({'server.socket_port': 80})
 	conf = {
 		'/': {
 			'tools.sessions.on': True,
