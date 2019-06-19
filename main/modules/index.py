@@ -9,4 +9,5 @@ class wellcome(object):
 		with open('templates/index.html') as fh:
 			index_f = fh.read()
 		result = index_f.format(_title='Titulni_strana', _heading='Vítejte!')
+		fh.close()
 		return result

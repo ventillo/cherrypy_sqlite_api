@@ -9,4 +9,5 @@ class select(object):
 		with open('templates/select.html') as fh:
 			index_f = fh.read()
 		result = index_f.format(_title='select_strana', _heading='select')
+		fh.close()
 		return result

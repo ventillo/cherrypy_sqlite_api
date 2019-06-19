@@ -9,4 +9,5 @@ class drop(object):
 		with open('templates/drop.html') as fh:
 			index_f = fh.read()
 		result = index_f.format(_title='drop_strana', _heading='drop')
+		fh.close()
 		return result
