@@ -36,7 +36,7 @@ class wellcome(object):
             "children": [],
             "spouse": null
             }'''
-        return json.loads(result)
+        return json.dumps(json.loads(result))
     
     @cherrypy.expose
     def other(self):
