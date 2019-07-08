@@ -30,6 +30,7 @@ https://cherrypy.org/
         - validate number of fields and types
         - error handling and tracebacks
     - SELECT
+        - *STRUCTURE:* http://server/{operation}/\[{db}/\[{table}\]\]/\[?json\]
         - SELECT {fields} FROM {table} WHERE {condition} {operator} {value}
         - the whole where cluase is optional, but needs to be implemented
     - DELETE

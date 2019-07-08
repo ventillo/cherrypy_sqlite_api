@@ -115,7 +115,45 @@ class select(object):
             return self
         return vpath
 
-    def sqlite_wrapper(self, db, **kwargs):
+    def sqlite_get_table(self, db, value, table):
+        ''' Calling the actual data from DB
+
+        Connect to DB, execute a query and return data
+
+        Args:
+            *db:*     str(), database file name
+            ***kwargs:*   dict(), additional arguments to specify the
+                            table and filters to retrieve the data by
+
+        Sets:
+            *N/A*
+
+        Returns:
+            *result:*    tuple(), rows from table, or DB schema as a tuple
+
+        Raises:
+            *N/A*
+
+        '''
+        db_file = f"{config._ROOT}/{config._DB_PATH}/{db}"
+        if self.sqlite_check_db(db):
+            self.sqlite_get_table_error = None
+            try:
+                conn = sqlite3.connect(db_file)
+                c = conn.cursor()
+                query = f"SELECT {value} FROM {table}"
+                c.execute(query)
+                result = c.fetchall()
+                print(result)
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                self.sqlite_get_table_error = e
+                print(e)
+                result = False
+        return result
+
+    def sqlite_check_db(self, db, **kwargs):
         ''' Calling the actual data from DB
 
         Connect to DB, execute a query and return data
@@ -137,31 +175,22 @@ class select(object):
         '''
         db_file = f"{config._ROOT}/{config._DB_PATH}/{db}"
         if os.path.exists(db_file):
-            error = False
+            self.sqlite_check_db_error = False
+            result = True
             if os.path.isfile(db_file):
-                error = False 
+                self.sqlite_check_db_error = False
+                result = True 
             else:
-                error = f"{db_file} is not a standard file"
-                html_result = htmlize.read_html('error', '/templates/')
-                result = html_result.format(_error=error)
-                return result
+                self.sqlite_check_db_error = f"{db_file} is not a standard file"
+                #html_result = htmlize.read_html('error', '/templates/')
+                #result = html_result.format(_error=error)
+                result = False
         else:
-            error = f"{db_file} does not exist"
-            html_result = htmlize.read_html('error', '/templates/')
-            result = html_result.format(_error=error)
-            return result
-        conn = sqlite3.connect(db_file)
-        c = conn.cursor()
-        if len(kwargs) == 0:
-            query = f"SELECT sql FROM sqlite_master"
-        else:
-            query = f"SELECT * FROM {kwargs['table']}"
-        c.execute(query)
-        result = c.fetchall()
-        conn.commit()
-        conn.close()
+            self.sqlite_check_db_error = f"{db_file} does not exist"
+            #html_result = htmlize.read_html('error', '/templates/')
+            #result = html_result.format(_error=error)
+            result = False
         return result
-
 
     @cherrypy.expose
     def index(self, **kwargs):
@@ -192,21 +221,20 @@ class select(object):
             # No table is defined, we want the 'schema' of the DB
             try:
                 db = kwargs["schema"]
-                result = self.sqlite_wrapper(db)
+                result = self.sqlite_get_table(db, '*', 'sqlite_master')
+                tables = self.sqlite_get_table(db, 'tbl_name', 'sqlite_master')
                 status = 'OK'
             except Exception as e:
                 result = ''
                 status = f"ERROR: {e}"
             self.html = htmlize.read_html('schema','/templates/')
-            # schema has weird structure, returns (val,) hence schema[0]
-            # [2] - third element '[0]CREATE [1]TABLE [2]'xyz' ...
-            tables = [schema[0].split(' ')[2].strip('\'') for schema in result]
             self.html = self.html.format(
                 _db=db,
                 _schema=htmlize.tabelize(result),
                 _tables=htmlize.tabelize_links(tables),
                 _status=status
             )
+            tables = [table[0] for table in tables]
             self.json.update({
                 "result": {"tables": tables},
                 "status": status
@@ -215,12 +243,10 @@ class select(object):
             # In case a table is defined, what are the values?
             db = kwargs['db']
             table = kwargs['table']
+            values = kwargs['values']
+            # TODO different values
             try:
-                result = self.sqlite_wrapper(
-                    db,
-                    table=table,
-                    values=kwargs['values']
-                )
+                result = self.sqlite_get_table(db, values, table)
                 status = 'OK'
             except Exception as e:
                 result = ''
@@ -257,11 +283,80 @@ class select(object):
 
 class insert(object):
     def __init__(self):
-        pass
+        self.html = ''
+        self.json = ''
 
+    def _cp_dispatch(self, vpath):
+        ''' Modify the request path, REST way
+
+        Format the variables in a row:
+        http://server/method/db_file/table/?values=<>&filter=<>
+
+        Args:
+            *vpath*     vpath - I don't quite understand this one,
+                        is it internal, or just a dummy?
+
+        Sets:
+            *cherrypy.request.params:*  list(), various variable parameters
+                                        for processing
+
+        Returns:
+            *vpath:*    list(), list of path elements
+
+        Raises:
+            *N/A*
+
+        '''
+        dbs = os.listdir(f"{config._ROOT}/{config._DB_PATH}")
+        if len(vpath) == 1:
+            schema = vpath.pop()
+            if schema in dbs:
+                cherrypy.request.params['schema'] = schema
+                return self
+            else:
+                del schema
+                return self
+
+        elif len(vpath) == 2:
+            cherrypy.request.params['table'] = vpath.pop()
+            cherrypy.request.params['db'] = vpath.pop()
+            cherrypy.request.params['values'] = '*'
+            return self
+        return vpath
+        
     @cherrypy.expose
-    def index(self):
-        return 'INSERT'
+    def index(self, **kwargs):
+        ''' Extending the expose - index method
+
+        Returns html / json output
+
+        Args:
+            ***kwargs:*   dict(), arguments needed for SELECT / SCHEMA
+                            schema=<db_name> or
+                            db=<db_name> AND table=<table_name> OPTINALLY
+                            values=<columns_to_select>, filter=<conditions>
+
+        Sets:
+            *N/A*
+
+        Returns:
+            *result:*    str(), rhtml code to be rendered, or JSON
+
+        Raises:
+            *N/A*
+
+        '''
+        self.html = ''
+        self.json = {}
+        url = cherrypy.url()
+        try:
+            db = kwargs['db']
+            table = kwargs['table']
+            values = kwargs['values']
+        if 'json' in kwargs.keys():
+            return json.dumps(self.json)
+        else:
+            return self.html
 
 
 class delete(object):
