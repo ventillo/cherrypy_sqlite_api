@@ -137,14 +137,13 @@ class select(object):
         '''
         db_file = f"{config._ROOT}/{config._DB_PATH}/{db}"
         if self.sqlite_check_db(db):
-            self.sqlite_get_table_error = None
+            self.sqlite_get_table_error = False
             try:
                 conn = sqlite3.connect(db_file)
                 c = conn.cursor()
                 query = f"SELECT {value} FROM {table}"
                 c.execute(query)
                 result = c.fetchall()
-                print(result)
                 conn.commit()
                 conn.close()
             except Exception as e:
@@ -181,12 +180,10 @@ class select(object):
                 self.sqlite_check_db_error = False
                 result = True 
             else:
-                self.sqlite_check_db_error = f"{db_file} is not a standard file"
-                #html_result = htmlize.read_html('error', '/templates/')
-                #result = html_result.format(_error=error)
+                self.sqlite_check_db_error = f"DB: {db_file} is not a standard file"
                 result = False
         else:
-            self.sqlite_check_db_error = f"{db_file} does not exist"
+            self.sqlite_check_db_error = f"DB: {db_file} does not exist"
             #html_result = htmlize.read_html('error', '/templates/')
             #result = html_result.format(_error=error)
             result = False
@@ -285,6 +282,7 @@ class insert(object):
     def __init__(self):
         self.html = ''
         self.json = ''
+        self.error = False
 
     def _cp_dispatch(self, vpath):
         ''' Modify the request path, REST way
@@ -307,22 +305,50 @@ class insert(object):
             *N/A*
 
         '''
-        dbs = os.listdir(f"{config._ROOT}/{config._DB_PATH}")
-        if len(vpath) == 1:
-            schema = vpath.pop()
-            if schema in dbs:
-                cherrypy.request.params['schema'] = schema
-                return self
-            else:
-                del schema
-                return self
-
-        elif len(vpath) == 2:
+        if len(vpath) == 2:
             cherrypy.request.params['table'] = vpath.pop()
             cherrypy.request.params['db'] = vpath.pop()
-            cherrypy.request.params['values'] = '*'
+            self.error = False
             return self
+        else:
+            self.error = 'Param error'
         return vpath
+
+    def sqlite_insert_values(self, db, table, values):
+        ''' Calling the actual data from DB
+
+        Connect to DB, execute a query and return data
+
+        Args:
+            *db:*     str(), database file name
+            ***kwargs:*   dict(), additional arguments to specify the
+                            table and filters to retrieve the data by
+
+        Sets:
+            *N/A*
+
+        Returns:
+            *result:*    tuple(), rows from table, or DB schema as a tuple
+
+        Raises:
+            *N/A*
+
+        '''
+        db_file = f"{config._ROOT}/{config._DB_PATH}/{db}"
+        try:
+            conn = sqlite3.connect(db_file)
+            c = conn.cursor()
+            query = f"INSERT INTO {table} VALUES({values})"
+            c.execute(query)
+            result = c.lastrowid
+            print(result)
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            self.error = e
+            print(e)
+            result = False
+        return result
         
     @cherrypy.expose
     def index(self, **kwargs):
@@ -353,16 +379,146 @@ class insert(object):
             db = kwargs['db']
             table = kwargs['table']
             values = kwargs['values']
+            print(f"(inser into {db}/{table} values({values})")
+            result = self.sqlite_insert_values(db, table, values)
+            self.html = htmlize.read_html('error','/templates/')
+            self.html = self.html.format(_error=result)
+            self.json.update({
+                "result":{"response": result},
+                "status": self.error
+            })
+            print(dir(result.pop()))
+        except Exception as e:
+            print(str(e))
+            #e = "ERROR: check DB / TABLE / VALUES"
+            result = htmlize.read_html('error', '/templates/')
+            self.html = self.html.format(_error=self.error)
         if 'json' in kwargs.keys():
-            return json.dumps(self.json)
+            return json.dumps(str(self.json))
         else:
             return self.html
 
 
 class delete(object):
     def __init__(self):
-        pass
+        self.html = ''
+        self.json = ''
+        self.error = False
 
+    def _cp_dispatch(self, vpath):
+        ''' Modify the request path, REST way
+
+        Format the variables in a row:
+        http://server/method/db_file/table/?values=<>&filter=<>
+
+        Args:
+            *vpath*     vpath - I don't quite understand this one,
+                        is it internal, or just a dummy?
+
+        Sets:
+            *cherrypy.request.params:*  list(), various variable parameters
+                                        for processing
+
+        Returns:
+            *vpath:*    list(), list of path elements
+
+        Raises:
+            *N/A*
+
+        '''
+        if len(vpath) == 2:
+            cherrypy.request.params['table'] = vpath.pop()
+            cherrypy.request.params['db'] = vpath.pop()
+            self.error = False
+            return self
+        else:
+            self.error = 'Param error'
+        return vpath
+
+    def sqlite_delete_values(self, db, table, item, value):
+        ''' Calling the actual data from DB
+
+        Connect to DB, execute a query and return data
+
+        Args:
+            *db:*     str(), database file name
+            ***kwargs:*   dict(), additional arguments to specify the
+                            table and filters to retrieve the data by
+
+        Sets:
+            *N/A*
+
+        Returns:
+            *result:*    tuple(), rows from table, or DB schema as a tuple
+
+        Raises:
+            *N/A*
+
+        '''
+        db_file = f"{config._ROOT}/{config._DB_PATH}/{db}"
+        try:
+            conn = sqlite3.connect(db_file)
+            c = conn.cursor()
+            query = f"DELETE FROM {table} WHERE {item} = '{value}'"
+            c.execute(query)
+            result = c.rowcount
+            conn.commit()
+            conn.close()
+            self.error = False
+            self.statement = query
+        except Exception as e:
+            self.error = e
+            print(e)
+            result = False
+        return result
+        
     @cherrypy.expose
-    def index(self):
-        return 'INSERT'
+    def index(self, **kwargs):
+        ''' Extending the expose - index method
+
+        Returns html / json output
+
+        Args:
+            ***kwargs:*   dict(), arguments needed for SELECT / SCHEMA
+                            schema=<db_name> or
+                            db=<db_name> AND table=<table_name> OPTINALLY
+                            values=<columns_to_select>, filter=<conditions>
+
+        Sets:
+            *N/A*
+
+        Returns:
+            *result:*    str(), rhtml code to be rendered, or JSON
+
+        Raises:
+            *N/A*
+
+        '''
+        self.html = ''
+        self.json = {}
+        url = cherrypy.url()
+        try:
+            db = kwargs['db']
+            table = kwargs['table']
+            value = kwargs['value']
+            item = kwargs['item']
+            print(f"(delete from {db}/{table} where {item} = '{value}'")
+            result = self.sqlite_delete_values(db, table, item, value)
+            self.html = htmlize.read_html('delete','/templates/')
+            self.html = self.html.format(
+                _rows_affected=result,
+                _statement=self.statement
+                )
+            self.json.update({
+                "result":{"response": result},
+                "status": self.error
+            })
+        except Exception as e:
+            print(str(e))
+            #e = "ERROR: check DB / TABLE / VALUES"
+            result = htmlize.read_html('error', '/templates/')
+            self.html = self.html.format(_error=self.error)
+        if 'json' in kwargs.keys():
+            return json.dumps(str(self.json))
+        else:
+            return self.html

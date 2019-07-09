@@ -11,6 +11,8 @@ Simple, lightweight, universal SQLite API, based on cherrypy.
     6. row deletes
     7. row modifies
 
+-------------------------------------------------------------------------------
+
 ## REST API
 https://www.restapitutorial.com/
 
@@ -30,9 +32,11 @@ https://cherrypy.org/
         - validate number of fields and types
         - error handling and tracebacks
     - SELECT
-        - *STRUCTURE:* http://server/{operation}/\[{db}/\[{table}\]\]/\[?json\]
+        - **STRUCTURE:** http://server/{operation}/{db}/{table}/?json=true
+            - operation, db, table, json are optional
         - SELECT {fields} FROM {table} WHERE {condition} {operator} {value}
-        - the whole where cluase is optional, but needs to be implemented
+            - TODO: conditions and filters
+            - the whole where cluase is optional, but needs to be implemented
     - DELETE
         - DELETE FROM {table} WHERE {condition} {operator} {value}
     - MODIFY / ALTER
